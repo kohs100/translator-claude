@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-INIT_FRAGMENT_SIZE_LINE = 200 # For testing purpose. 256-512 is recommended.
+INIT_FRAGMENT_SIZE_LINE = 200
 MODEL_NAME = "claude-sonnet-4-5-20250929"
 TEMP_DIR = "./responses"
 
