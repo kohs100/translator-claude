@@ -13,17 +13,9 @@ from anthropic.types import MessageParam, ThinkingConfigParam
 from libdoc import Paragraph
 from pydantic import BaseModel
 
-with open("system_prompt.md", "rt") as f:
-    PROMPT_SYSTEM = f.read()
-
-PROMPT_DIRECTIVE = "**task**\nAccording to the given contextual information, translate the Japanese document into Korean."
-OUTPUT_PREFILL = '{\n  "context": "'
-
-
 class ModelOutput(BaseModel):
     context: str
     translation: str
-
 
 @dataclass
 class TranslationResult:
@@ -70,6 +62,10 @@ def concat_translation_result(trs: list[TranslationResult]) -> str:
 
 
 class Translator:
+    PROMPT_SYSTEM_PATH="system_prompt.md"
+    PROMPT_DIRECTIVE = "**task**\nAccording to the given contextual information, translate the Japanese document into Korean."
+    OUTPUT_PREFILL = '{\n  "context": "'
+
     def __init__(
         self,
         api_key: str,
@@ -90,6 +86,9 @@ class Translator:
         if temp_dir is not None:
             os.makedirs(temp_dir, exist_ok=True)
 
+        with open(self.PROMPT_SYSTEM_PATH, "rt") as f:
+            self.PROMPT_SYSTEM = f.read()
+
     def shrink_batch(self):
         assert self.batch_size > 1, "Cannot shrink batch size. Already 1"
         new_sz = self.batch_size // 2
@@ -104,6 +103,12 @@ class Translator:
             self.think_budget == 0 or self.think_budget >= 1024
         ), "Extended thinking budget must be above 1024."
         return self.think_budget >= 1024
+
+    def parse_output(
+        self,
+        generation: str
+    ) -> ModelOutput:
+        return ModelOutput.model_validate_json(generation)
 
     def translate_paragraph(
         self,
@@ -130,7 +135,7 @@ class Translator:
                 "content": [
                     {
                         "type": "text",
-                        "text": PROMPT_DIRECTIVE,
+                        "text": self.PROMPT_DIRECTIVE,
                     },
                     {
                         "type": "text",
@@ -154,7 +159,7 @@ class Translator:
             req_messages.append(
                 {
                     "role": "assistant",
-                    "content": [{"type": "text", "text": OUTPUT_PREFILL}],
+                    "content": [{"type": "text", "text": self.OUTPUT_PREFILL}],
                 }
             )
         batch_obj = self.client.messages.batches.create(
@@ -165,7 +170,7 @@ class Translator:
                         model=self.model_name,
                         max_tokens=64000,
                         temperature=1,
-                        system=PROMPT_SYSTEM,
+                        system=self.PROMPT_SYSTEM,
                         messages=req_messages,
                         thinking=req_thinking,
                     ),
@@ -251,9 +256,28 @@ class Translator:
             elif result.startswith("```") and result.endswith("```"):
                 print("Think result is wrapped with codeblock!! (```)")
                 result = result[3:-3]
-            gen = ModelOutput.model_validate_json(result)
+            gen = self.parse_output(result)
         else:
             assert think_result is None
-            gen = ModelOutput.model_validate_json(OUTPUT_PREFILL + result)
+            gen = self.parse_output(self.OUTPUT_PREFILL + result)
 
         return [TranslationResult(gen, para)]
+
+class TranslatorMD(Translator):
+    PROMPT_SYSTEM_PATH="system_prompt_2.md"
+    OUTPUT_PREFILL = "## Context"
+
+    def parse_output(self, generation: str) -> ModelOutput:
+        generation = generation.strip()
+        assert generation.lower().startswith(self.OUTPUT_PREFILL.lower())
+
+        trs_head = "## Translation\n"
+
+        ctx_start = len(self.OUTPUT_PREFILL)
+        ctx_end = generation.lower().find(trs_head.lower())
+        trs_start = ctx_end + len(trs_head)
+
+        ctx = generation[ctx_start:ctx_end].strip()
+        trs = generation[trs_start:].strip()
+
+        return ModelOutput(context=ctx, translation=trs)

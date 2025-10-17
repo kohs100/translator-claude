@@ -12,9 +12,13 @@ wheels/
 .env
 
 documents/*
-!documents/ginga_tetsudo*.txt
+!documents/ginga_tetsudo*
+!documents/kazeno_matasaburo*
 
 results/*
-!results/ginga_tetsudo*.txt
+!results/ginga_tetsudo*
+!results/kazeno_matasaburo*
 
 responses
+
+run.py
