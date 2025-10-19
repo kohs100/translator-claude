@@ -13,14 +13,17 @@ from anthropic.types import MessageParam, ThinkingConfigParam
 from libdoc import Paragraph
 from pydantic import BaseModel
 
+
 class ModelOutput(BaseModel):
     context: str
     translation: str
+
 
 @dataclass
 class TranslationResult:
     output: ModelOutput
     paragraph: Paragraph
+
 
 def get_next_batch(batch_lines: int):
     assert batch_lines > 1
@@ -28,6 +31,7 @@ def get_next_batch(batch_lines: int):
     if batch_lines % 2 == 1:
         new_sz += 1
     return new_sz
+
 
 def concat_translation_result(trs: list[TranslationResult]) -> str:
     doc = trs[0].paragraph.doc
@@ -62,7 +66,7 @@ def concat_translation_result(trs: list[TranslationResult]) -> str:
 
 
 class Translator:
-    PROMPT_SYSTEM_PATH="system_prompt.md"
+    PROMPT_SYSTEM_PATH = "system_prompt.md"
     PROMPT_DIRECTIVE = "**task**\nAccording to the given contextual information, translate the Japanese document into Korean."
     OUTPUT_PREFILL = '{\n  "context": "'
 
@@ -104,10 +108,7 @@ class Translator:
         ), "Extended thinking budget must be above 1024."
         return self.think_budget >= 1024
 
-    def parse_output(
-        self,
-        generation: str
-    ) -> ModelOutput:
+    def parse_output(self, generation: str) -> ModelOutput:
         return ModelOutput.model_validate_json(generation)
 
     def translate_paragraph(
@@ -140,6 +141,7 @@ class Translator:
                     {
                         "type": "text",
                         "text": f"**context**\n{prev_context}",
+                        "cache_control": {"type": "ephemeral"},
                     },
                     {
                         "type": "text",
@@ -263,8 +265,9 @@ class Translator:
 
         return [TranslationResult(gen, para)]
 
+
 class TranslatorMD(Translator):
-    PROMPT_SYSTEM_PATH="system_prompt_2.md"
+    PROMPT_SYSTEM_PATH = "system_prompt_2.md"
     OUTPUT_PREFILL = "## Context"
 
     def parse_output(self, generation: str) -> ModelOutput:

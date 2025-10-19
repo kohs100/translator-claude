@@ -1,5 +1,5 @@
 class Document:
-    def __init__(self, multiline_text: str):
+    def __init__(self, multiline_text: str, verbose: bool = True):
         lines: list["Line"] = []
         for linenum, text in enumerate(multiline_text.split("\n")):
             text = text.strip()
@@ -7,12 +7,14 @@ class Document:
                 lines.append(Line(self, linenum, text))
 
         self.lines = lines
-        print(f"Loaded document with {len(lines)} lines")
+        self.verbose = verbose
+        if verbose:
+            print(f"Loaded document with {len(lines)} lines")
 
     @staticmethod
-    def from_file(path: str):
+    def from_file(path: str, verbose: bool = True):
         with open(path, "rt") as f:
-            return Document(f.read())
+            return Document(f.read(), verbose=verbose)
 
     def as_paragraph(self) -> "Paragraph":
         return Paragraph(self, 0, len(self.lines))
